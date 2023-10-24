@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
 #include "drivers/owl_adc.h"
+#include "drivers/owl_ble.h"
 #include "drivers/owl_gpio.h"
 #include "drivers/owl_motor.h"
 #include "drivers/owl_phead.h"
@@ -13,6 +14,7 @@ void test_init() {
   gpio_init();
   motor_init();
   phead_init();
+  ble_init();
 }
 
 void test_adc_and_gpio() {
