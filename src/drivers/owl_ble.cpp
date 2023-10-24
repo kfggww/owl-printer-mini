@@ -6,6 +6,8 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 
+#include "owl_printer.h"
+
 #define OWL_BLE_NAME "OWL-Printer-MINI"
 #define OWL_BLE_SERVICE_UUID "4e3eeda0-83bf-45d7-8707-769d6348411c"
 #define OWL_BLE_PACKET_INPUT_UUID "4e3eedb1-83bf-45d7-8707-769d6348411c"
@@ -124,7 +126,8 @@ class OwlCharacterCallback : public BLECharacteristicCallbacks {
         Serial.printf("[INFO]: TEST packet, tdata=0x%x\n", packet->tdata);
     }
 
-    // TODOs: 将包发送到printer
+    // 将数据包发送到printer
+    printer_accept_packet(type, packet);
   }
 };
 
