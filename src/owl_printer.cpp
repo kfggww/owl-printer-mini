@@ -32,7 +32,7 @@ static void pdes_init() {
 
 void printer_init() {
   adc_init();
-  gpio_init();
+  owl_gpio_init();
   ble_init();
   phead_init();
   pdes_init();
@@ -66,6 +66,7 @@ void printer_run() {
       // 更新状态, 并释放锁
       pdes.state = PState_Ready;
       pdes.buf_size = 0;
+      gpio_led_set_mode(LED_ALWAYS_ON_MODE);
       xSemaphoreGive(pdes.lock);
     }
     delay(20);
@@ -107,6 +108,7 @@ void printer_accept_packet(uint8_t type, OwlPacket *packet) {
             pdes.w_index = (w_index + 1) % MAX_NLINES;
             pdes.state = PState_Working;
           }
+          gpio_led_set_mode(LED_SLOWLY_BLINK_MODE);
           break;
         case PState_Waitting:
           if (type == PKT_TYPE_END) {

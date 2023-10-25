@@ -33,4 +33,8 @@
 /* 缺纸检测 */
 #define PIN_LACK_PAPER 35
 
+/* LED和Button */
+#define PIN_LED 18
+#define PIN_BTN 5
+
 #endif
