@@ -3,9 +3,23 @@
 #include <Arduino.h>
 
 #include "owl_configs.h"
+#include "owl_printer.h"
 
 #define SLOWLY_BLINK_INTERVAL_MS 800
 #define FAST_BLINK_INTERVAL_MS 200
+
+SemaphoreHandle_t sem_paper_ready;
+SemaphoreHandle_t sem_paper_ready_confirm;
+
+void ARDUINO_ISR_ATTR gpio_btn_isr(void) {
+  int lack = digitalRead(PIN_LACK_PAPER);
+  PrinterState state = printer_get_state();
+
+  if (lack == 0 && state == PState_Pause) {
+    xSemaphoreGive(sem_paper_ready_confirm);
+    Serial.println("[INFO]: paper ready confirmed");
+  }
+}
 
 /**
  * GPIO初始化.
@@ -14,6 +28,21 @@ void owl_gpio_init() {
   pinMode(PIN_LACK_PAPER, INPUT);
   pinMode(PIN_LED, OUTPUT);
   digitalWrite(PIN_LED, HIGH);
+  sem_paper_ready = xSemaphoreCreateBinary();
+  sem_paper_ready_confirm = xSemaphoreCreateBinary();
+  attachInterrupt(PIN_BTN, gpio_btn_isr, FALLING);
+}
+
+/**
+ * 通知打印任务纸张就绪.
+ */
+void gpio_notify_printer_paper_ready(int lack) {
+  if (printer_get_state() == PState_Pause && lack == 0) {
+    // 从缺纸状态, 检测到纸张就绪.
+    // 等待用户按键确认, 纸张放置完毕, 之后通知打印任务
+    xSemaphoreTake(sem_paper_ready_confirm, portMAX_DELAY);
+    xSemaphoreGive(sem_paper_ready);
+  }
 }
 
 /**
@@ -21,7 +50,7 @@ void owl_gpio_init() {
  *
  * @return 0: 不缺纸; 1: 缺纸
  */
-int gpio_check_lack_paper() { return digitalRead(PIN_LACK_PAPER); }
+int gpio_read_lack_paper() { return digitalRead(PIN_LACK_PAPER); }
 
 static int volatile led_mode = LED_ALWAYS_ON_MODE;
 
@@ -49,6 +78,4 @@ void gpio_led_blink() {
   }
 }
 
-void gpio_led_set_mode(int mode) {
-  led_mode = mode;
-}
+void gpio_led_set_mode(int mode) { led_mode = mode; }

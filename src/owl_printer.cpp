@@ -3,12 +3,6 @@
 #define NBYTES_PER_LINE 48
 #define MAX_NLINES 100
 
-enum PrinterState {
-  PState_Ready,
-  PState_Waitting,
-  PState_Working,
-};
-
 struct PrinterDes {
   PrinterState state;
   uint8_t buffer[MAX_NLINES][NBYTES_PER_LINE];
@@ -42,35 +36,41 @@ void printer_init() {
  * 打印任务, 等待有数据可以打印.
  */
 void printer_run() {
-  for (;;) {
-    if (xSemaphoreTake(pdes.lock, 20) == pdTRUE) {
-      // 检查当前状态
-      if (pdes.state != PState_Working) {
-        xSemaphoreGive(pdes.lock);
-        continue;
-      }
-
-      Serial.println("[INFO]: printer working...");
-
-      // 打印全部数据
-      uint8_t counter = 0;
-      while (counter < pdes.buf_size) {
-        uint8_t *data = pdes.buffer[pdes.r_index];
-        phead_draw_line(data, NBYTES_PER_LINE);
-        counter++;
-        pdes.r_index = (pdes.r_index + 1) % MAX_NLINES;
-      }
-
-      Serial.println("[INFO]: printer working done!");
-
-      // 更新状态, 并释放锁
-      pdes.state = PState_Ready;
-      pdes.buf_size = 0;
-      gpio_led_set_mode(LED_ALWAYS_ON_MODE);
+  if (xSemaphoreTake(pdes.lock, 20) == pdTRUE) {
+    // 检查当前状态
+    if (pdes.state != PState_Working) {
       xSemaphoreGive(pdes.lock);
+      return;
     }
-    delay(20);
+
+    Serial.println("[INFO]: printer working...");
+
+    // 打印全部数据
+    uint8_t counter = 0;
+    while (counter < pdes.buf_size) {
+      // 等待纸张就绪
+      while (pdes.lack_paper) {
+        gpio_led_set_mode(LED_FAST_BLINK_MODE);
+        pdes.state = PState_Pause;
+        xSemaphoreTake(sem_paper_ready, portMAX_DELAY);
+        pdes.state = PState_Working;
+        gpio_led_set_mode(LED_SLOWLY_BLINK_MODE);
+      }
+      uint8_t *data = pdes.buffer[pdes.r_index];
+      phead_draw_line(data, NBYTES_PER_LINE);
+      counter++;
+      pdes.r_index = (pdes.r_index + 1) % MAX_NLINES;
+    }
+
+    Serial.println("[INFO]: printer working done!");
+
+    // 更新状态, 并释放锁
+    pdes.state = PState_Ready;
+    pdes.buf_size = 0;
+    gpio_led_set_mode(LED_ALWAYS_ON_MODE);
+    xSemaphoreGive(pdes.lock);
   }
+  delay(100);
 }
 
 /**
@@ -140,3 +140,11 @@ void printer_accept_packet(uint8_t type, OwlPacket *packet) {
 }
 
 void printer_report_status() {}
+
+void printer_set_status(float temp, float volt, int lack) {
+  pdes.temp = temp;
+  pdes.volt = volt;
+  pdes.lack_paper = lack;
+}
+
+PrinterState printer_get_state() { return pdes.state; }

@@ -12,5 +12,7 @@ void setup() {
 void loop() {
   delay(1000);
   Serial.println("OWL-Printer-MINI running...");
-  printer_run();
+  for (;;) {
+    delay(1000);
+  }
 }
