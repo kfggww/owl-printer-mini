@@ -139,7 +139,11 @@ void printer_accept_packet(uint8_t type, OwlPacket *packet) {
   }
 }
 
-void printer_report_status() {}
+float printer_get_temp() { return pdes.temp; }
+
+float printer_get_volt() { return pdes.volt; }
+
+float printer_get_lack_paper() { return pdes.lack_paper; }
 
 void printer_set_status(float temp, float volt, int lack) {
   pdes.temp = temp;

@@ -22,7 +22,11 @@ void printer_run();
 
 void printer_accept_packet(uint8_t type, OwlPacket *packet);
 
-void printer_report_status();
+float printer_get_temp();
+
+float printer_get_volt();
+
+float printer_get_lack_paper();
 
 void printer_set_status(float temp, float volt, int lack);
 

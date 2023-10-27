@@ -66,7 +66,7 @@ class OwlServerCallback : public BLEServerCallbacks {
  public:
   void onConnect(BLEServer *server) {
     ble_connected = 1;
-    Serial.println("[INFO]: new bel connection");
+    Serial.println("[INFO]: new ble connection");
   }
 
   void onDisconnect(BLEServer *server) {
@@ -79,8 +79,15 @@ class OwlServerCallback : public BLEServerCallbacks {
 class OwlCharacterCallback : public BLECharacteristicCallbacks {
  public:
   void onRead(BLECharacteristic *c) {
-    // TODOs:
-    // 上报硬件和软件状态的信息
+    if(c->getUUID().equals(BLEUUID::fromString(OWL_BLE_STATUS_REPORT_UUID))) {
+      float status[3] = {0};
+      status[0] = printer_get_temp();
+      status[1] = printer_get_volt();
+      status[2] = printer_get_lack_paper();
+
+      c->setValue((uint8_t *)status, sizeof(status));
+      Serial.println("[INFO]: client read printer status");
+    }
   }
 
   /**
