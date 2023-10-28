@@ -101,11 +101,6 @@ class OwlCharacterCallback : public BLECharacteristicCallbacks {
 
     size_t packet_len = c->getLength();
     uint8_t *raw_packet = c->getData();
-    Serial.printf("[INFO]: raw packet len: %d\n[INFO]: raw packet data: ",
-                  packet_len);
-    for (int i = 0; i < packet_len; i++) {
-      Serial.printf("0x%x%c", raw_packet[i], i == packet_len - 1 ? '\n' : ' ');
-    }
 
     OwlPacket *packet = nullptr;
 
@@ -123,11 +118,7 @@ class OwlCharacterCallback : public BLECharacteristicCallbacks {
         Serial.println("[INFO]: END packet received");
         break;
       case PKT_TYPE_DATA:
-        Serial.print("[INFO]: DATA packet received: ");
-        for (int i = 0; i < 48; i++) {
-          Serial.printf("0x%x%c", packet->data[i],
-                        i == PKT_DATA_LEN - 1 ? '\n' : ' ');
-        }
+        Serial.println("[INFO]: DATA packet received");
         break;
       case PKT_TYPE_TEST:
         Serial.printf("[INFO]: TEST packet, tdata=0x%x\n", packet->tdata);

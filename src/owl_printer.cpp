@@ -1,7 +1,7 @@
 #include "owl_printer.h"
 
 #define NBYTES_PER_LINE 48
-#define MAX_NLINES 100
+#define MAX_NLINES 400
 
 struct PrinterDes {
   PrinterState state;
@@ -70,7 +70,7 @@ void printer_run() {
     gpio_led_set_mode(LED_ALWAYS_ON_MODE);
     xSemaphoreGive(pdes.lock);
   }
-  delay(100);
+  delay(10);
 }
 
 /**
@@ -80,18 +80,11 @@ void printer_run() {
  * @param packet, 包内容
  */
 void printer_accept_packet(uint8_t type, OwlPacket *packet) {
-  // 处在working状态, 丢弃当前包
-  if (pdes.state == PState_Working) {
-    Serial.printf(
-        "[WARNING]: drop packet of type (0x%x), because printer is working\n",
-        type);
-    return;
-  }
 
-  // 尝试3次
+  // 尝试10次
   int taken = 0;
-  for (int i = 0; i < 3 && taken == 0; i++) {
-    if (xSemaphoreTake(pdes.lock, 20) == pdTRUE) {
+  for (int i = 0; i < 10 && taken == 0; i++) {
+    if (xSemaphoreTake(pdes.lock, 60) == pdTRUE) {
       // 当前状态, 当前写指针位置
       taken = 1;
       PrinterState current_state = pdes.state;
