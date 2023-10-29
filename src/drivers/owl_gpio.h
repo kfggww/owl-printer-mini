@@ -13,8 +13,6 @@ void owl_gpio_init();
 
 int gpio_read_lack_paper();
 
-void gpio_notify_printer_paper_ready(int lack);
-
 void gpio_led_blink();
 
 void gpio_led_set_mode(int mode);

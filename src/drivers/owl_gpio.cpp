@@ -9,7 +9,6 @@
 #define FAST_BLINK_INTERVAL_MS 200
 
 SemaphoreHandle_t sem_paper_ready;
-SemaphoreHandle_t sem_paper_ready_confirm;
 
 void ARDUINO_ISR_ATTR gpio_btn_isr(void) {
   int lack = digitalRead(PIN_LACK_PAPER);
@@ -17,7 +16,7 @@ void ARDUINO_ISR_ATTR gpio_btn_isr(void) {
 
   if (lack == 0 && printer_get_pause()) {
     printer_set_pause(0);
-    xSemaphoreGive(sem_paper_ready_confirm);
+    xSemaphoreGive(sem_paper_ready);
     Serial.println("[INFO]: paper ready confirmed");
   }
 }
@@ -30,28 +29,7 @@ void owl_gpio_init() {
   pinMode(PIN_LED, OUTPUT);
   digitalWrite(PIN_LED, HIGH);
   sem_paper_ready = xSemaphoreCreateBinary();
-  sem_paper_ready_confirm = xSemaphoreCreateBinary();
   attachInterrupt(PIN_BTN, gpio_btn_isr, FALLING);
-}
-
-/**
- * 通知打印任务纸张就绪.
- */
-void gpio_notify_printer_paper_ready(int lack) {
-  static int lack_last_time = 0;
-  if (lack == 0 && lack_last_time == 1) {
-    // 从缺纸状态, 检测到纸张就绪.
-    lack_last_time = 0;
-    xSemaphoreTake(sem_paper_ready_confirm, portMAX_DELAY);
-    xSemaphoreGive(sem_paper_ready);
-  }
-  if (lack_last_time == 0) {
-    lack_last_time = lack;
-    if (lack) {
-      printer_set_pause(1);
-      gpio_led_set_mode(LED_FAST_BLINK_MODE);
-    }
-  }
 }
 
 /**

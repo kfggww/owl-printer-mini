@@ -24,8 +24,6 @@ void task_check_status(void *arg) {
     Serial.printf("[INFO]: temp=%.2f, volt=%.2f, lack_paper=%d\n", temp, volt,
                   lack);
 
-    gpio_notify_printer_paper_ready(lack);
-
     delay(1000);
   }
   Serial.println("[WARNING]: task_check_status exit");

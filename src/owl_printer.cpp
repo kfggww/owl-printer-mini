@@ -52,7 +52,8 @@ void printer_run() {
     // 开始打印数据
     while (nlines > 0) {
       // 等待纸张就绪
-      while (pdes.pause) {
+      while (pdes.lack_paper) {
+        pdes.pause = 1;
         gpio_led_set_mode(LED_FAST_BLINK_MODE);
         xSemaphoreTake(sem_paper_ready, portMAX_DELAY);
       }
