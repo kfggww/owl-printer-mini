@@ -15,7 +15,8 @@ void ARDUINO_ISR_ATTR gpio_btn_isr(void) {
   int lack = digitalRead(PIN_LACK_PAPER);
   PrinterState state = printer_get_state();
 
-  if (lack == 0) {
+  if (lack == 0 && printer_get_pause()) {
+    printer_set_pause(0);
     xSemaphoreGive(sem_paper_ready_confirm);
     Serial.println("[INFO]: paper ready confirmed");
   }
@@ -42,12 +43,14 @@ void gpio_notify_printer_paper_ready(int lack) {
     // 从缺纸状态, 检测到纸张就绪.
     lack_last_time = 0;
     xSemaphoreTake(sem_paper_ready_confirm, portMAX_DELAY);
-    printer_set_pause(0);
     xSemaphoreGive(sem_paper_ready);
   }
   if (lack_last_time == 0) {
     lack_last_time = lack;
-    if (lack) printer_set_pause(1);
+    if (lack) {
+      printer_set_pause(1);
+      gpio_led_set_mode(LED_FAST_BLINK_MODE);
+    }
   }
 }
 

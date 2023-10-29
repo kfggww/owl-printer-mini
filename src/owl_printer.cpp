@@ -55,8 +55,8 @@ void printer_run() {
       while (pdes.pause) {
         gpio_led_set_mode(LED_FAST_BLINK_MODE);
         xSemaphoreTake(sem_paper_ready, portMAX_DELAY);
-        gpio_led_set_mode(LED_SLOWLY_BLINK_MODE);
       }
+      gpio_led_set_mode(LED_SLOWLY_BLINK_MODE);
       uint8_t *data = pdes.buffer[r_index];
       phead_draw_line(data, NBYTES_PER_LINE);
       nlines -= 1;
@@ -88,14 +88,12 @@ void printer_accept_packet(uint8_t type, OwlPacket *packet) {
         memset(pdes.buffer[w_index], packet->tdata, NBYTES_PER_LINE);
         pdes.buf_size++;
         pdes.w_index = (w_index + 1) % MAX_NLINES;
-        gpio_led_set_mode(LED_SLOWLY_BLINK_MODE);
         if (pdes.buf_size >= 100) xSemaphoreGive(pdes.sem_data_ready);
         break;
       case PKT_TYPE_DATA:
         memcpy(pdes.buffer[w_index], packet->data, NBYTES_PER_LINE);
         pdes.buf_size++;
         pdes.w_index = (w_index + 1) % MAX_NLINES;
-        gpio_led_set_mode(LED_SLOWLY_BLINK_MODE);
         if (pdes.buf_size >= 100) xSemaphoreGive(pdes.sem_data_ready);
         break;
     }
@@ -132,3 +130,5 @@ void printer_set_status(float temp, float volt, int lack) {
 PrinterState printer_get_state() { return pdes.state; }
 
 void printer_set_pause(uint8_t pause) { pdes.pause = pause; }
+
+uint8_t printer_get_pause() { return pdes.pause; }

@@ -34,4 +34,6 @@ PrinterState printer_get_state();
 
 void printer_set_pause(uint8_t pause);
 
+uint8_t printer_get_pause();
+
 #endif
