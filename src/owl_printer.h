@@ -32,4 +32,6 @@ void printer_set_status(float temp, float volt, int lack);
 
 PrinterState printer_get_state();
 
+void printer_set_pause(uint8_t pause);
+
 #endif

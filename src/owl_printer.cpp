@@ -10,6 +10,8 @@ struct PrinterDes {
   uint8_t w_index;
   uint8_t buf_size;
   SemaphoreHandle_t lock;
+  SemaphoreHandle_t sem_data_ready;
+  uint8_t pause;
 
   float temp;
   float volt;
@@ -22,6 +24,7 @@ static void pdes_init() {
   memset(&pdes, 0, sizeof(pdes));
   pdes.state = PState_Ready;
   pdes.lock = xSemaphoreCreateMutex();
+  pdes.sem_data_ready = xSemaphoreCreateBinary();
 }
 
 void printer_init() {
@@ -37,40 +40,33 @@ void printer_init() {
  */
 void printer_run() {
   if (xSemaphoreTake(pdes.lock, 20) == pdTRUE) {
-    // 检查当前状态
-    if (pdes.state != PState_Working) {
-      xSemaphoreGive(pdes.lock);
-      return;
-    }
+    uint8_t nlines = 100;
+    nlines = nlines <= pdes.buf_size ? nlines : pdes.buf_size;
+    uint8_t r_index = pdes.r_index;
 
-    Serial.println("[INFO]: printer working...");
+    pdes.buf_size -= nlines;
+    pdes.r_index = (r_index + nlines) % MAX_NLINES;
 
-    // 打印全部数据
-    uint8_t counter = 0;
-    while (counter < pdes.buf_size) {
+    xSemaphoreGive(pdes.lock);
+
+    // 开始打印数据
+    while (nlines > 0) {
       // 等待纸张就绪
-      while (pdes.lack_paper) {
+      while (pdes.pause) {
         gpio_led_set_mode(LED_FAST_BLINK_MODE);
-        pdes.state = PState_Pause;
         xSemaphoreTake(sem_paper_ready, portMAX_DELAY);
-        pdes.state = PState_Working;
         gpio_led_set_mode(LED_SLOWLY_BLINK_MODE);
       }
-      uint8_t *data = pdes.buffer[pdes.r_index];
+      uint8_t *data = pdes.buffer[r_index];
       phead_draw_line(data, NBYTES_PER_LINE);
-      counter++;
-      pdes.r_index = (pdes.r_index + 1) % MAX_NLINES;
+      nlines -= 1;
+      r_index = (r_index + 1) % MAX_NLINES;
     }
 
-    Serial.println("[INFO]: printer working done!");
-
-    // 更新状态, 并释放锁
-    pdes.state = PState_Ready;
-    pdes.buf_size = 0;
     gpio_led_set_mode(LED_ALWAYS_ON_MODE);
-    xSemaphoreGive(pdes.lock);
   }
-  delay(10);
+  // 等待数据就绪
+  xSemaphoreTake(pdes.sem_data_ready, 200);
 }
 
 /**
@@ -80,48 +76,37 @@ void printer_run() {
  * @param packet, 包内容
  */
 void printer_accept_packet(uint8_t type, OwlPacket *packet) {
-
-  // 尝试10次
   int taken = 0;
-  for (int i = 0; i < 10 && taken == 0; i++) {
-    if (xSemaphoreTake(pdes.lock, 60) == pdTRUE) {
-      // 当前状态, 当前写指针位置
-      taken = 1;
-      PrinterState current_state = pdes.state;
-      uint8_t w_index = pdes.w_index;
+  if (xSemaphoreTake(pdes.lock, 600) == pdTRUE) {
+    // 当前状态, 当前写指针位置
+    taken = 1;
+    uint8_t w_index = pdes.w_index;
 
-      // 根据当前状态以及包类型, 进行状态转移
-      switch (current_state) {
-        case PState_Ready:
-          if (type == PKT_TYPE_START) {
-            pdes.state = PState_Waitting;
-          } else if (type == PKT_TYPE_TEST) {
-            memset(pdes.buffer[w_index], packet->tdata, NBYTES_PER_LINE);
-            pdes.buf_size++;
-            pdes.w_index = (w_index + 1) % MAX_NLINES;
-            pdes.state = PState_Working;
-          }
-          gpio_led_set_mode(LED_SLOWLY_BLINK_MODE);
-          break;
-        case PState_Waitting:
-          if (type == PKT_TYPE_END) {
-            pdes.state = PState_Working;
-          } else if (type == PKT_TYPE_DATA) {
-            memcpy(pdes.buffer[w_index], packet->data, NBYTES_PER_LINE);
-            pdes.buf_size++;
-            pdes.w_index = (w_index + 1) % MAX_NLINES;
-          }
-          break;
-      }
-
-      // 处理溢出问题, 发送数据溢出, 将导致打印数据丢失.
-      if (pdes.buf_size > MAX_NLINES) {
-        Serial.println("[WARNING]: printer buffer overflow!");
-        pdes.buf_size = pdes.w_index - pdes.r_index;
-      }
-
-      xSemaphoreGive(pdes.lock);
+    // 根据当前状态以及包类型, 进行状态转移
+    switch (type) {
+      case PKT_TYPE_TEST:
+        memset(pdes.buffer[w_index], packet->tdata, NBYTES_PER_LINE);
+        pdes.buf_size++;
+        pdes.w_index = (w_index + 1) % MAX_NLINES;
+        gpio_led_set_mode(LED_SLOWLY_BLINK_MODE);
+        if (pdes.buf_size >= 100) xSemaphoreGive(pdes.sem_data_ready);
+        break;
+      case PKT_TYPE_DATA:
+        memcpy(pdes.buffer[w_index], packet->data, NBYTES_PER_LINE);
+        pdes.buf_size++;
+        pdes.w_index = (w_index + 1) % MAX_NLINES;
+        gpio_led_set_mode(LED_SLOWLY_BLINK_MODE);
+        if (pdes.buf_size >= 100) xSemaphoreGive(pdes.sem_data_ready);
+        break;
     }
+
+    // 处理溢出问题, 发送数据溢出, 将导致打印数据丢失.
+    if (pdes.buf_size > MAX_NLINES) {
+      Serial.println("[WARNING]: printer buffer overflow!");
+      pdes.buf_size = pdes.w_index - pdes.r_index;
+    }
+
+    xSemaphoreGive(pdes.lock);
   }
 
   if (taken == 0) {
@@ -145,3 +130,5 @@ void printer_set_status(float temp, float volt, int lack) {
 }
 
 PrinterState printer_get_state() { return pdes.state; }
+
+void printer_set_pause(uint8_t pause) { pdes.pause = pause; }

@@ -15,7 +15,7 @@ void ARDUINO_ISR_ATTR gpio_btn_isr(void) {
   int lack = digitalRead(PIN_LACK_PAPER);
   PrinterState state = printer_get_state();
 
-  if (lack == 0 && state == PState_Pause) {
+  if (lack == 0) {
     xSemaphoreGive(sem_paper_ready_confirm);
     Serial.println("[INFO]: paper ready confirmed");
   }
@@ -37,11 +37,17 @@ void owl_gpio_init() {
  * 通知打印任务纸张就绪.
  */
 void gpio_notify_printer_paper_ready(int lack) {
-  if (printer_get_state() == PState_Pause && lack == 0) {
+  static int lack_last_time = 0;
+  if (lack == 0 && lack_last_time == 1) {
     // 从缺纸状态, 检测到纸张就绪.
-    // 等待用户按键确认, 纸张放置完毕, 之后通知打印任务
+    lack_last_time = 0;
     xSemaphoreTake(sem_paper_ready_confirm, portMAX_DELAY);
+    printer_set_pause(0);
     xSemaphoreGive(sem_paper_ready);
+  }
+  if (lack_last_time == 0) {
+    lack_last_time = lack;
+    if (lack) printer_set_pause(1);
   }
 }
 

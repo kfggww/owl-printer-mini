@@ -79,7 +79,7 @@ class OwlServerCallback : public BLEServerCallbacks {
 class OwlCharacterCallback : public BLECharacteristicCallbacks {
  public:
   void onRead(BLECharacteristic *c) {
-    if(c->getUUID().equals(BLEUUID::fromString(OWL_BLE_STATUS_REPORT_UUID))) {
+    if (c->getUUID().equals(BLEUUID::fromString(OWL_BLE_STATUS_REPORT_UUID))) {
       float status[3] = {0};
       status[0] = printer_get_temp();
       status[1] = printer_get_volt();
